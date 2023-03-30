@@ -1,10 +1,18 @@
-import { RDSClient } from 'ali-rds'
-import * as dotenv from 'dotenv'
-import { Configuration, OpenAIApi } from 'openai'
+const {RDSClient} = require('ali-rds') 
+const dotenv = require('dotenv') 
+const { Configuration, OpenAIApi } = require('openai')
+const express = require('express')
+const cors = require('cors')
 
 dotenv.config()
 
-export const sqlDB = new RDSClient({
+const port = 443
+const app = express()
+const optionsJson = { extended: true, limit: '10mb' }
+app.use(express.json(optionsJson)) // 请求体参数是json结构: {name: tom, pwd: 123}
+app.use(cors())
+
+const sqlDB = new RDSClient({
   host: '118.195.236.91',
   port: 3306,
   user: process.env.DATASET_MYSQL_USER,
@@ -96,7 +104,7 @@ let systemContext = systemContextConfig['3top']
 
 const conversationHistoryObject = {}
 
-module.exports = async (req, res) => {
+app.post('/api/createChatCompletion', async (req, res) => {
   try {
     let { prompt, conversationId, userName } = req.body
 
@@ -161,4 +169,15 @@ module.exports = async (req, res) => {
     console.error(error)
     res.status(500).json({ error: 'An error occurred while processing the request.', message: error.message })
   }
-}
+})
+
+app.get('/', async (req, res) => {
+  const data = {
+      msg: "server is running!"
+  };
+  res.status(200).json(data);
+})
+
+app.listen(port, () => {
+  console.log('Server running at http://localhost:%d', port)
+})
