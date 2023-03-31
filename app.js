@@ -6,19 +6,23 @@ const cors = require('cors')
 
 dotenv.config()
 
-const port = 443
+const port = 3000
+
 const app = express()
 const optionsJson = { extended: true, limit: '10mb' }
 app.use(express.json(optionsJson)) // 请求体参数是json结构: {name: tom, pwd: 123}
 app.use(cors())
 
-const sqlDB = new RDSClient({
-  host: '118.195.236.91',
-  port: 3306,
-  user: process.env.DATASET_MYSQL_USER,
-  password: process.env.DATASET_MYSQL_PASSWORD,
-  database: process.env.DATASET_MYSQL_DATABASE,
-})
+let sqlDB
+if(process.env.DATASET_MYSQL_USER) {
+  sqlDB = new RDSClient({
+    host: '118.195.236.91',
+    port: 3306,
+    user: process.env.DATASET_MYSQL_USER,
+    password: process.env.DATASET_MYSQL_PASSWORD,
+    database: process.env.DATASET_MYSQL_DATABASE,
+  })
+}
 
 const configuration = new Configuration({
   apiKey: process.env.OPENAI_API_KEY,
@@ -47,19 +51,17 @@ const systemContextConfig = {
   入参：{uuid?: string, position: [number, number, number], radius?: number, color?: number}
   2. disableOtherNode: 禁用其他节点
   入参：{uuid: string}
-  3. initDefaultScene: 初始化默认场景
+  3. initDefaultScene: 初始化场景
   入参：{options: SceneOptions}
-  4. setContext: 空间切换
+  4. setContext: 切换空间到
   入参：{encId: string}
-  5. reset: 重置
+  5. reset: 重置地图
   入参：{}
-  6. focusEntity: 聚焦实体
+  6. focusEntity: 聚焦到
   入参：{uuid: string}
-  7. focusPreEntity: 聚焦上一个实体
+  7. focusPreEntity: 聚焦到上一个实体
   入参：{}
-  8. disableOtherNode: 禁用其他节点
-  入参：{uuid: string}
-  9. naviByEntityId: 根据实体ID导航
+  9. naviByEntityId: 导航到
   入参：{uuid: string}
   10. showLabel: 显示标签
   入参：{uuid: string}
@@ -82,8 +84,8 @@ const systemContextConfig = {
 
 以下是注意事项：
   1. 当输出json时，您的回复应仅包含json文本，不应包含任何额外的解释或说明；
-  2. 当您对输出的结果不是很确定或匹配不到函数名时，请返回“{error: ” + 返回的内容 + ”}“的格式来向我提问；
-  3. 当提问中包含“蓝润大厦”或“智源大厦”时，输出的encId或uuid为“10latS7FRxjUjk9FgbMwhZ”；当提问中包含“中关村西区”时，输出的encId或uuid为“1TjZK6lSPqhrkENzm02TB”；当提问中包含类似“蓝润三层”、“蓝润大厦五层”、“智源一层”、“智源大厦负一层”等楼层相关信息，请返回“{error: ” + 返回的内容 + ”}“的格式来向我提问；
+  2. 当您对输出的结果不是很确定或匹配不到函数名时，请向我提问；
+  3. 当提问中包含“蓝润大厦”或“智源大厦”时，输出的encId或uuid为“10latS7FRxjUjk9FgbMwhZ”；当提问中包含“中关村西区”时，输出的encId或uuid为“1TjZK6lSPqhrkENzm02TB”；当提问中包含类似“蓝润三层”、“蓝润大厦五层”、“智源一层”、“智源大厦负一层”等楼层相关信息，请向我提问；
   4. JSON中的color字段应以十六进制格式表示；
 
 问答的示例：
@@ -93,11 +95,26 @@ const systemContextConfig = {
   A：“{error: '没有海淀区相关参数，请给我提供海淀区的encId和uuid'}”
 `,
   'webos': `
-我想让您作为一个3D地图接口调用参数生成器，可以推测，但是请不要伪造信息，当我提出问题时，您需要拼装一个json作为输出。1. 当输出json时，您的回复应仅包含json文本，不应包含任何额外的解释或说明；2. 当对输出的内容不确定时，请您向我提问；
-我向您提问的示例：
-Q:  “打开资源管理器”
-A:  “{ domain: 'webos', function: 'openApp', options: {appName: '资源管理器'}}”
-  `,
+您将扮演一个webos接口参数生成器的角色，当我提出问题时，请尽可能的拼装一个json作为输出，请保持严谨，不要伪造信息。
+
+以下是您需要了解的功能及其输入参数：
+  1. module: 'appCoreApi'
+    打开应用: 'open' | options: {id: string}
+    关闭应用: 'closeById' | options: {id: string}
+
+以下是注意事项：
+  1. 当输出json时，您的回复应仅包含json文本，不应包含任何额外的解释或说明；
+  2. 当您对输出的结果不是很确定或匹配不到函数名时，请向我提问；
+  3. 当提问中包含"应用商店"则id为"pinefield.app-store",
+    当提问中包含"资源管理器"则id为"pinefield.resource-manager",
+    当提问中包含"第代码平台"则id为"pinefield.lowcode-app-renderer",
+  
+问答的示例：
+  Q：“打开应用商店”
+  A：“{ domain: 'webos', module: 'appCoreApi', function: 'open', options: {id: 'pinefield.app-store'}}”
+  Q：“关闭城市脉搏”
+  A：“{ error: '没有城市脉搏相关参数，请给我提供城市脉搏的id'}”
+`,
 }
 
 let systemContext = systemContextConfig['3top']
@@ -106,25 +123,52 @@ const conversationHistoryObject = {}
 
 app.post('/api/createChatCompletion', async (req, res) => {
   try {
+    console.log('req.body', req.body)
+    let response = {}
     let { prompt, conversationId, userName } = req.body
 
     if (prompt.includes('重置会话')) {
       if (conversationId)
-        delete conversationHistoryObject[conversationId]
+      delete conversationHistoryObject[conversationId]
 
-      res.status(200).json({
-        message: '会话已重置',
-        conversationId: '',
-      })
+      response.message =  { 
+        role: 'user',
+        content: '会话已重置'
+      }
+      response.conversationId = ''
+
+      console.log('response', response)
+      res.status(200).json(response)
       return
     }
 
     // 如果将prompt转小写后，其中包含“3d”且包含“指令”
     if (prompt.includes('指令')) {
-      if (prompt.toLowerCase().includes('3d'))
+      if (prompt.toLowerCase().includes('3top')){
         systemContext = systemContextConfig['3top']
-      else if (prompt.toLowerCase().includes('webos'))
-        systemContext = systemContextConfig.webos
+
+        response.message = { 
+          role: 'user',
+          content: '模态切换成功'
+        }
+        response.conversationId = conversationId
+
+        console.log('response', response)
+        res.status(200).json(response)
+        return
+      } else if (prompt.toLowerCase().includes('webos')){
+        systemContext = systemContextConfig['webos']
+
+        response.message = { 
+          role: 'user',
+          content: '模态切换成功'
+        }
+        response.conversationId = conversationId
+
+        console.log('response', response)
+        res.status(200).json(response)
+        return
+      }
     }
 
     let conversation = conversationHistoryObject[conversationId] || []
@@ -139,15 +183,19 @@ app.post('/api/createChatCompletion', async (req, res) => {
       model: 'gpt-3.5-turbo',
       messages: conversationHistory,
       temperature: 0,
-      top_p: 1,
-      n: 1,
+      // top_p: 1,
+      // n: 1,
       max_tokens: 2000,
     }
 
     const result = await openai.createChatCompletion(chatCompletionRequest)
-    console.log('result.data', result.data)
-
+    console.log('result.data.choices[0]', result.data.choices[0])
+    
     const message = result.data.choices[0].message
+    if(message.content)
+    if (!message.content.trim().startsWith("{")) {
+      message.content = "{ 'error': '" + message.content + "'}"
+    }
     const finish_reason = result.data.choices[0].finish_reason
 
     if (!conversationId)
@@ -156,16 +204,16 @@ app.post('/api/createChatCompletion', async (req, res) => {
     conversationHistoryObject[conversationId] = conversationHistoryObject[conversationId] || []
     conversationHistoryObject[conversationId].push(message)
 
-    const response = {
-      message,
-      conversationId,
+    response.message = message
+    response.conversationId = conversationId
+      
+    if(sqlDB){
+      await sqlDB.insert('conversation', { prompt, conversation: JSON.stringify(message), conversationId, userName, datetime: dateFormat(new Date().getTime()), usage: JSON.stringify(result.data.usage), finish_reason })
     }
 
-    await sqlDB.insert('conversation', { prompt, conversation: JSON.stringify(message), conversationId, userName, datetime: dateFormat(new Date().getTime()), usage: JSON.stringify(result.data.usage), finish_reason })
-
+    console.log('response', response)
     res.status(200).json(response)
-  }
-  catch (error) {
+  } catch (error) {
     console.error(error)
     res.status(500).json({ error: 'An error occurred while processing the request.', message: error.message })
   }
