@@ -1,11 +1,11 @@
 // 验证跨域的请求样例
-fetch('https://xiaoqi.mashaojie.cn/api/createChatCompletion/api/createChatCompletion', {
+fetch('http://localhost:3000/api/createChatCompletion', {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json'
   },
   body: JSON.stringify({
-    "prompt": "切换到西区", "conversationId": "", "userName": "Jetsom"
+    "prompt": "切换到中关村西区", "conversationId": "", "userName": "Jetsom"
   })
 }).then(response => {
   if (response.ok) {

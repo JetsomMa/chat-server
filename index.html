@@ -1,13 +1,75 @@
 <!DOCTYPE html>
 <html lang="en">
-	<head>
-		<meta charset="UTF-8">
-		<meta name="viewport" content="width=device-width, initial-scale=1.0">
-		<title>我的项目</title>
-	</head>
-	<body>
-			<h1>服务正常运行中...</h1>
-			<br>
-			<a href="api/test">访问测试接口</a>
-	</body>
+<head>
+    <meta charset="UTF-8">
+    <title>Text To Commond</title>
+    <meta name="viewport"
+          content="width=device-width,height=device-height, user-scalable=no,initial-scale=1, minimum-scale=1, maximum-scale=1,target-densitydpi=device-dpi ">
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@2.51.3/dist/full.css" rel="stylesheet" type="text/css"/>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+<div class="container">
+    <div class="flex flex-col items-center h-screen w-screen">
+        <div class="flex flex-col items-center justify-center">
+            <h1 class="text-5xl font-bold mt-20">Text To Commond</h1>
+            <p class="text-xl my-10">一个验证自然语言转指令集的AI程序</p>
+        </div>
+        <div class="flex flex-row items-center justify-center w-full">
+            <input id="search" type="text" placeholder="请输出查询内容"
+                   class="input input-bordered w-2/3 lg:w-2/5 mr-2"/>
+            <button class="btn btn-primary">提交</button>
+        </div>
+        <div id="loading" style="display: none; width: 100%; text-align: center; font-size: 25px; color: blueviolet;">请求中，请稍后...</div>
+        <div class="flex flex-col justify-start mt-10 mx-5">
+            <div class="card bg-base-100 shadow-md">
+                <div class="card-body">
+                    <h2 class="card-title">AI 回答</h2>
+                    <p class="text-lg" id="answer"></p>
+                    <br>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+    const submitButton = document.querySelector('button');
+    const search = document.querySelector('#search');
+    const card = document.querySelector('.card');
+    const loading = document.querySelector('#loading');
+    card.style.display = 'none';
+
+    search.addEventListener('keypress', function(event) {
+        if (search.value && event.key === 'Enter') {
+            event.preventDefault();
+            // 触发click事件
+            submitButton.click();
+        }
+    });
+
+    let conversationId
+    submitButton.addEventListener('click', () => {
+        loading.style.display = 'block';
+        card.style.display = 'none';
+        const data = {
+            prompt: search.value, 
+            conversationId, 
+            userName: 'test'
+        };
+        fetch('/api/createChatCompletion', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        }).then(res => res.json()).then(result => {
+            loading.style.display = 'none';
+            card.style.display = 'block';
+            conversationId = result.conversationId;
+            document.querySelector('#answer').innerHTML = JSON.stringify(result);
+        });
+    });
+
+</script>
+</body>
 </html>
