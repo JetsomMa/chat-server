@@ -25,6 +25,7 @@ export class OpenAI {
     openai: OpenAIApi | undefined
     conversationHistoryObject: ConversationHistoryObject = {}
     chatCompletionRequest: CreateChatCompletionRequest
+    currentDemo: string
 
     constructor() {
         const configuration = new Configuration({
@@ -50,18 +51,42 @@ export class OpenAI {
     async generateCommand(response): Promise<Response> {
         try {
             // 进行指令拆解
-            let splitResult: Response = await this.convertCommand(response, 'splitsteps') as Response
+            let splitResult: Response = await this.splitCommand(response) as Response
 
             let contents: Content[] = []
-            for (let commandPrompt of splitResult.contents) {
-                let content = await this.convertCommand({ conversationId: response.conversationId, prompt: commandPrompt.prompt }, commandPrompt.domain) as Content
-                if(content.text) {
-                    response.type = 'text'
-                    response.contents = [content]
-                    return response
-                } else {
-                    contents.push(content)
+            try {
+                for (let commandPrompt of splitResult.contents) {
+                    
+                    if(commandPrompt.domain === 'default' && this.currentDemo) {
+                        commandPrompt.domain = this.currentDemo
+                    }
+    
+                    let content = await this.convertCommand({ conversationId: response.conversationId, prompt: commandPrompt.prompt }, commandPrompt.domain) as Content
+                    if(content.text) {
+                        response.type = 'text'
+                        response.contents = [content]
+                        this.conversationHistoryObject[response.conversationId] = this.conversationHistoryObject[response.conversationId] || []
+                        this.conversationHistoryObject[response.conversationId].push({
+                            role: 'user',
+                            content: response.prompt
+                        })
+                        this.conversationHistoryObject[response.conversationId].push({
+                            role: 'assistant',
+                            content: JSON.stringify(content)
+                        })
+                        this.currentDemo = commandPrompt.domain
+                        return response
+                    } else {
+                        contents.push(content)
+                        this.conversationHistoryObject[response.conversationId] = []
+                        this.currentDemo = ''
+                    }
                 }
+            } catch (error) {
+                console.error("------------splitResult-error-----------")
+                console.error(error)
+                console.error(splitResult)
+                console.error("------------splitResult-error-end----------")
             }
 
             response.type = splitResult.type
@@ -85,38 +110,71 @@ export class OpenAI {
         }
     }
 
-    // 指令转换
-    async convertCommand(response, domain): Promise<Content | Response> {
+    // 指令拆分
+    async splitCommand(response): Promise<Content | Response> {
+        this.chatCompletionRequest.messages = [
+            { role: 'system', content: systemContexts['splitsteps'] },
+            { role: 'user', content: response.prompt },
+        ]
+            
+        const result = await this.openai.createChatCompletion(this.chatCompletionRequest)
+        const message = result.data.choices[0].message
+
+        message.content = message.content.replace('A:', '').trim()
+        console.error("splitCommand-content-> ", message.content)
+
+        // if (message.content)
+        //     if (!message.content.startsWith("{")) {
+        //         message.content = '{ "text": "' + message.content + '"}';
+        //     }
+
+        if (!response.conversationId)
+            response.conversationId = result.data.id
+
+        try {
+            let result = JSON.parse(message.content)
+            return result
+        } catch (error) {
+            console.error('splitCommand-error', error)
+            console.error('splitCommand-message -> ', message)
+            return {}
+        }
+    }
+
+      // 指令转换
+      async convertCommand(response, domain): Promise<Content | Response> {
         let conversation = this.conversationHistoryObject[response.conversationId] || []
-        conversation = conversation.slice(-3)
+        conversation = conversation.slice(-4)
         this.chatCompletionRequest.messages = [
             { role: 'system', content: (systemContexts[(domain || 'default')] || '') },
             ...conversation,
             { role: 'user', content: response.prompt },
         ]
 
+        console.log("this.chatCompletionRequest.messages -> ", this.chatCompletionRequest.messages)
+
         const result = await this.openai.createChatCompletion(this.chatCompletionRequest)
-        // console.log('result.data.choices[0]', result.data.choices[0])
         // retObject.finish_reason = result.data.choices[0].finish_reason
 
         const message = result.data.choices[0].message
-
-        // console.error("message.content-> ", "[" + typeof message.content + "]", message.content)
-
         message.content = message.content.replace('A:', '').trim()
         if (message.content)
             if (!message.content.startsWith("{")) {
+                console.error("不是json -> ", message.content)
                 message.content = '{ "text": "' + message.content + '"}';
             }
 
         if (!response.conversationId)
             response.conversationId = result.data.id
 
-        if (domain !== 'splitsteps') {
-            this.conversationHistoryObject[response.conversationId] = this.conversationHistoryObject[response.conversationId] || []
-            this.conversationHistoryObject[response.conversationId].push(message)
+        console.error("convertCommand-content-> ", message.content)
+        try {
+            let result = JSON.parse(message.content)
+            return result
+        } catch (error) {
+            console.error('error', error)
+            console.error('message -> ', message)
+            return {}
         }
-
-        return JSON.parse(message.content)
     }
 }
