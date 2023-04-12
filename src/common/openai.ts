@@ -32,7 +32,9 @@ export class OpenAI {
         const configuration = new Configuration({
             apiKey: process.env.OPENAI_API_KEY,
         })
+        // this.openai = new OpenAIApi(configuration, 'https://gpt.io404.net/v1')
         this.openai = new OpenAIApi(configuration)
+
 
         this.chatCompletionRequest = {
             model: 'gpt-3.5-turbo',
