@@ -2,17 +2,18 @@ import { Configuration, OpenAIApi } from "openai"
 import type { CreateChatCompletionRequest, ChatCompletionRequestMessage } from "openai"
 import { systemContexts } from './system-contexts'
 
+type Domain = '3top'|'webos'|'default'|'splitsteps'
 export interface Content {
     prompt?: string
-    domain?: string
+    domain?: Domain
     method?: string
     params?: any[]
     text?: string
 }
 
 export interface Response {
-    prompt?: string
-    conversationId?: string | undefined
+    prompt: string
+    conversationId: string
     type?: 'cmd' | 'cmdshow' | 'text' | 'markdown',
     contents: Content[]
 }
@@ -25,7 +26,7 @@ export class OpenAI {
     openai: OpenAIApi | undefined
     conversationHistoryObject: ConversationHistoryObject = {}
     chatCompletionRequest: CreateChatCompletionRequest
-    currentDemo: string
+    currentDemo: Domain = 'default'
 
     constructor() {
         const configuration = new Configuration({
@@ -48,56 +49,60 @@ export class OpenAI {
     }
 
     // 指令生成调用总入口
-    async generateCommand(response): Promise<Response> {
+    async generateCommand(response: Response): Promise<Response> {
         try {
             // 进行指令拆解
-            let splitResult: Response = await this.splitCommand(response) as Response
+            let splitResult = await this.splitCommand(response)
 
             let contents: Content[] = []
-            try {
-                for (let commandPrompt of splitResult.contents) {
-                    
-                    if(commandPrompt.domain === 'default' && this.currentDemo) {
-                        commandPrompt.domain = this.currentDemo
+            if(splitResult && splitResult.contents && splitResult.contents.length > 0) {
+                try {
+                    for (let commandPrompt of splitResult.contents) {
+                        commandPrompt.domain = commandPrompt.domain || 'default'
+                        if(commandPrompt.domain === 'default') {
+                            commandPrompt.domain = this.currentDemo
+                        }
+        
+                        if(commandPrompt.prompt) {
+                            let content = await this.convertCommand(response.conversationId, commandPrompt.prompt , commandPrompt.domain)
+                            if(content) {
+                                if(content.text){
+                                    response.type = 'text'
+                                    response.contents = [content]
+                                    this.conversationHistoryObject[response.conversationId] = this.conversationHistoryObject[response.conversationId] || []
+                                    this.conversationHistoryObject[response.conversationId].push({
+                                        role: 'user',
+                                        content: response.prompt
+                                    })
+                                    this.conversationHistoryObject[response.conversationId].push({
+                                        role: 'assistant',
+                                        content: JSON.stringify(content)
+                                    })
+                                    this.currentDemo = commandPrompt.domain || ''
+                                    return response
+                                } else {
+                                    contents.push(content)
+                                    this.conversationHistoryObject[response.conversationId] = []
+                                    this.currentDemo = 'default'
+                                }
+                            }
+                        }
                     }
-    
-                    let content = await this.convertCommand({ conversationId: response.conversationId, prompt: commandPrompt.prompt }, commandPrompt.domain) as Content
-                    if(content.text) {
-                        response.type = 'text'
-                        response.contents = [content]
-                        this.conversationHistoryObject[response.conversationId] = this.conversationHistoryObject[response.conversationId] || []
-                        this.conversationHistoryObject[response.conversationId].push({
-                            role: 'user',
-                            content: response.prompt
-                        })
-                        this.conversationHistoryObject[response.conversationId].push({
-                            role: 'assistant',
-                            content: JSON.stringify(content)
-                        })
-                        this.currentDemo = commandPrompt.domain
-                        return response
-                    } else {
-                        contents.push(content)
-                        this.conversationHistoryObject[response.conversationId] = []
-                        this.currentDemo = ''
-                    }
+                } catch (error) {
+                    console.error("------------splitResult-error-----------")
+                    console.error(error)
+                    console.error(splitResult)
+                    console.error("------------splitResult-error-end----------")
                 }
-            } catch (error) {
-                console.error("------------splitResult-error-----------")
-                console.error(error)
-                console.error(splitResult)
-                console.error("------------splitResult-error-end----------")
-            }
 
-            response.type = splitResult.type
+                response.type = splitResult.type
+            }
             response.contents = contents
 
             if(response.type === 'markdown'){
                 let content: Content = {
-                    // prompt: response.prompt,
                     text: '```\n' + JSON.stringify(response.contents) + '\n```'
                 }
-                // let content = await this.convertCommand({ conversationId: response.conversationId, prompt: '以markdown格式展示下面内容\n\n' + JSON.stringify(response.contents) }, '') as Response
                 response.contents = [content]
             }
 
@@ -107,18 +112,32 @@ export class OpenAI {
         } catch (error) {
             console.error("------------error------------")
             console.error(error)
+            return response
         }
     }
 
     // 指令拆分
-    async splitCommand(response): Promise<Content | Response> {
+    async splitCommand(response: Response): Promise<Response|undefined> {
         this.chatCompletionRequest.messages = [
             { role: 'system', content: systemContexts['splitsteps'] },
             { role: 'user', content: response.prompt },
         ]
+
+        if(!this.openai){
+            let result: Response = {
+                type: 'text',
+                contents: [{
+                    text: 'OpenAI API Key 未配置'
+                }],
+                prompt: response.prompt,
+                conversationId: response.conversationId,
+            }
+
+            return result
+        }
             
         const result = await this.openai.createChatCompletion(this.chatCompletionRequest)
-        const message = result.data.choices[0].message
+        const message = result.data.choices[0].message || { content: ''}
 
         message.content = message.content.replace('A:', '').trim()
         console.error("splitCommand-content-> ", message.content)
@@ -137,26 +156,30 @@ export class OpenAI {
         } catch (error) {
             console.error('splitCommand-error', error)
             console.error('splitCommand-message -> ', message)
-            return {}
         }
     }
 
-      // 指令转换
-      async convertCommand(response, domain): Promise<Content | Response> {
-        let conversation = this.conversationHistoryObject[response.conversationId] || []
+    // 指令转换
+    async convertCommand(conversationId: string, prompt: string, domain: Domain): Promise<Content|undefined> {
+        let conversation = this.conversationHistoryObject[conversationId] || []
         conversation = conversation.slice(-4)
         this.chatCompletionRequest.messages = [
-            { role: 'system', content: (systemContexts[(domain || 'default')] || '') },
+            { role: 'system', content: (systemContexts[domain] || '') },
             ...conversation,
-            { role: 'user', content: response.prompt },
+            { role: 'user', content: prompt },
         ]
 
-        console.log("this.chatCompletionRequest.messages -> ", this.chatCompletionRequest.messages)
+        if(!this.openai){
+            let result: Content = {
+                text: 'OpenAI API Key 未配置'
+            }
+
+            return result
+        }
 
         const result = await this.openai.createChatCompletion(this.chatCompletionRequest)
-        // retObject.finish_reason = result.data.choices[0].finish_reason
-
-        const message = result.data.choices[0].message
+        
+        const message = result.data.choices[0].message || { content: ''}
         message.content = message.content.replace('A:', '').trim()
         if (message.content)
             if (!message.content.startsWith("{")) {
@@ -164,17 +187,12 @@ export class OpenAI {
                 message.content = '{ "text": "' + message.content + '"}';
             }
 
-        if (!response.conversationId)
-            response.conversationId = result.data.id
-
-        console.error("convertCommand-content-> ", message.content)
         try {
             let result = JSON.parse(message.content)
             return result
         } catch (error) {
             console.error('error', error)
             console.error('message -> ', message)
-            return {}
         }
     }
 }

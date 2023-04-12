@@ -44,9 +44,6 @@
     3. JSON中的color字段应以十六进制格式表示；
         问答的示例：[Q: 问题  A: 回答]
             Q: “切换到蓝润大厦。”
-            A: { "domain": "3top", "method": "setContext", "params": ["10latS7FRxjUjk9FgbMwhZ"]}
+            A: { "domain": "3top", "method": "pinefield.3top.3top.3top.setContext", "params": ["10latS7FRxjUjk9FgbMwhZ"]}
             Q: “请在地图上的位置10 20 30处画一个半径为10且颜色为红色的圆圈。”
-            A: { "domain": "3top", "method": "drawCircle", "params": [{ "position": [10, 20, 30], "radius": 10, "color": 0xff0000 }]}
-
-    
-    
+            A: { "domain": "3top", "method": "pinefield.3top.3top.3top.drawCircle", "params": [{ "position": [10, 20, 30], "radius": 10, "color": 0xff0000 }]}

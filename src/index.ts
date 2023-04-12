@@ -1,5 +1,5 @@
 const dotenv = require('dotenv') 
-const express = require('express')
+import express, { Request } from "express";
 const cors = require('cors')
 const path = require('path');
 
@@ -23,13 +23,13 @@ const optionsJson = { extended: true, limit: '10mb' }
 app.use(express.json(optionsJson)) // 请求体参数是json结构: {name: tom, pwd: 123}
 app.use(cors())
 
-app.post('/api/createChatCompletion', async (req, res) => {
+app.post('/api/createChatCompletion', async (req: Request, res: any) => {
   try {
     console.log('req.body -> ', req.body)
     let { prompt, conversationId, userName } = req.body
     let response: Response = {
       prompt,
-      conversationId,
+      conversationId: conversationId || '',
       contents: []
     }
 
@@ -54,7 +54,7 @@ app.post('/api/createChatCompletion', async (req, res) => {
       conversation: JSON.stringify(response.contents), 
       conversationId: response.conversationId, 
       username: userName, 
-      datetime: dateFormat(new Date().getTime()), 
+      datetime: dateFormat(new Date()), 
       // usage: JSON.stringify(result.data.usage), 
       // finish_reason 
     }

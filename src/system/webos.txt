@@ -6,7 +6,7 @@
 
 以下是入参翻译：
     应用商店: "pinefield.app-store"
-    资源管理器: "pinefield.resource-manager"
+    资源管理器: "pinefield.app-resource"
     第代码平台: "pinefield.lowcode-app-renderer"
 
 以下是注意事项：

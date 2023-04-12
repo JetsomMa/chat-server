@@ -2,7 +2,7 @@ const fs = require('fs')
 const path = require('path')
 
 function readFolderJs(folderPath, filePath) {
-  let fileContents = {}
+  let fileContents = {default: ''}
   // 读取文件夹下所有文件名
   const files = fs.readdirSync(folderPath);
   // 遍历所有文件

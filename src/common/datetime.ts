@@ -1,12 +1,20 @@
-export function dateFormat(dataStamp) {
-    const date = new Date(dataStamp)
-    const year = date.getFullYear()
-
-    const month = date.getMonth() + 1 < 10 ? `0${date.getMonth() + 1}` : date.getMonth() + 1
-    const day = date.getDate() < 10 ? `0${date.getDate()}` : date.getDate()
-    const hours = date.getHours() < 10 ? `0${date.getHours()}` : date.getHours()
-    const minutes = date.getMinutes() < 10 ? `0${date.getMinutes()}` : date.getMinutes()
-    const seconds = date.getSeconds() < 10 ? `0${date.getSeconds()}` : date.getSeconds()
-    // 拼接
-    return `${year}${month}${day} ${hours}:${minutes}:${seconds}`
+interface O {
+    [key: string]: number;
 }
+
+export function dateFormat(date: Date, fmt?: string|undefined) { //author: meizz
+    fmt = fmt || 'yyyy-MM-dd hh:mm:ss'
+    var o: O = {
+      'M+': date.getMonth() + 1, //月份
+      'd+': date.getDate(), //日
+      'h+': date.getHours(), //小时
+      'm+': date.getMinutes(), //分
+      's+': date.getSeconds(), //秒
+      'q+': Math.floor((date.getMonth() + 3) / 3), //季度
+      'S': date.getMilliseconds() //毫秒
+    };
+    if (/(y+)/.test(fmt)) fmt = fmt.replace(RegExp.$1, (date.getFullYear() + '').substr(4 - RegExp.$1.length));
+    for (var k in o)
+      if (new RegExp('(' + k + ')').test(fmt)) fmt = fmt.replace(RegExp.$1, (RegExp.$1.length == 1) ? o[k] : (('00' + o[k]).substr(('' + o[k]).length)));
+    return fmt;
+  }
