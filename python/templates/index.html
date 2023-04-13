@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Text To Commond</title>
+    <title>向量数据库验证</title>
     <meta name="viewport"
           content="width=device-width,height=device-height, user-scalable=no,initial-scale=1, minimum-scale=1, maximum-scale=1,target-densitydpi=device-dpi ">
     <link href="https://cdn.jsdelivr.net/npm/daisyui@2.51.3/dist/full.css" rel="stylesheet" type="text/css"/>
@@ -12,8 +12,8 @@
 <div class="container">
     <div class="flex flex-col items-center h-screen w-screen">
         <div class="flex flex-col items-center justify-center">
-            <h1 class="text-5xl font-bold mt-20">Text To Commond</h1>
-            <p class="text-xl my-10">一个验证自然语言转指令集的AI程序</p>
+            <h1 class="text-5xl font-bold mt-20">向量数据库验证</h1>
+            <p class="text-xl my-10">这个页面用来进行向量数据库查询效果的验证</p>
         </div>
         <div class="flex flex-row items-center justify-center w-full">
             <input id="search" type="text" placeholder="请输出查询内容"
@@ -24,11 +24,34 @@
         <div class="flex flex-col justify-start mt-10 mx-5">
             <div class="card bg-base-100 shadow-md">
                 <div class="card-body">
-                    <h2 class="card-title">AI 回答</h2>
+                    <h2 class="card-title">匹配数量</h2>
                     <p class="text-lg" id="answer"></p>
                     <br>
+                    <h2 class="card-title">参照内容</h2>
+                    <div id="resultArray">
+                    </div>
                 </div>
             </div>
+        </div>
+        <div style="width: 100%; text-align: center; font-size: 20px;">
+            <div style="font-weight: 600;">请求示例</div>
+            <br>切换到五道口
+            <br>切换至蓝润
+            <br>切换至蓝润二层
+            <br>切换到蓝润大厦
+            <br>在43 25 39的位置画一个黄色的半径为123的圆
+            <br>在43 25 39的位置画一个半径为123的圆
+            <br>聚焦到蓝润大厦
+            <br>聚焦到蓝润六层
+            <br>显示蓝润大厦的标签
+            <br>显示蓝润大厦四层的标签
+            <br>地图放大
+            <br>缩小地图
+            <br>将空间指向蓝润
+            <br>将空间切换到西区
+            <br>将空间切换到中关村西区
+            <br>打开灯
+            <br>谁是猴子搬的救兵
         </div>
     </div>
 </div>
@@ -47,16 +70,13 @@
         }
     });
 
-    let conversationId
     submitButton.addEventListener('click', () => {
         loading.style.display = 'block';
         card.style.display = 'none';
         const data = {
-            prompt: search.value, 
-            conversationId, 
-            userName: '马少杰test'
+            search: search.value,
         };
-        fetch('/api/createChatCompletion', {
+        fetch('/search', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -65,8 +85,13 @@
         }).then(res => res.json()).then(result => {
             loading.style.display = 'none';
             card.style.display = 'block';
-            conversationId = result.conversationId;
-            document.querySelector('#answer').innerHTML = JSON.stringify(result);
+            document.querySelector('#answer').innerHTML = result.data.answer;
+            let resultArray = result.data.resultArray;
+            console.error(resultArray);
+            document.querySelector('#resultArray').innerHTML = resultArray.map(resultItem => {
+                resultItem.payload.text = JSON.parse(resultItem.payload.text);
+                return `<div style="display: flex;"><div style="width: 100px;">${resultItem.score}</div><div>${JSON.stringify(resultItem.payload)}</div></div>`
+            }).join('');
         });
     });
 

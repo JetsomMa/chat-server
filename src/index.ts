@@ -24,15 +24,16 @@ app.use(express.json(optionsJson)) // 请求体参数是json结构: {name: tom, 
 app.use(cors())
 
 app.post('/api/createChatCompletion', async (req: Request, res: any) => {
-  try {
-    console.log('req.body -> ', req.body)
-    let { prompt, conversationId, userName } = req.body
-    let response: Response = {
-      prompt,
-      conversationId: conversationId || '',
-      contents: []
-    }
+  console.log('----------------------------------------------------------')
+  console.log('req.body -> ', req.body)
+  let { prompt, conversationId, userName } = req.body
+  let response: Response = {
+    prompt,
+    conversationId: conversationId || '',
+    contents: []
+  }
 
+  try {
     if (prompt.includes('重置会话')) {
       openAIApi.resetConversation(response.conversationId)
 
@@ -60,10 +61,20 @@ app.post('/api/createChatCompletion', async (req: Request, res: any) => {
     }
     mysqlDB.saveConversation(conversationDB)
 
-    // console.log('response', response)
+    console.log('response ->', response)
     res.status(200).json(response)
-  } catch (error) {
+  } catch (error: any) {
     console.error(error)
+
+    const conversationDB: ConversationRecord = { 
+      prompt, 
+      conversation: JSON.stringify(error), 
+      conversationId: response.conversationId, 
+      username: userName, 
+      datetime: dateFormat(new Date())
+    }
+    mysqlDB.saveConversation(conversationDB)
+
     res.status(500).json({ error: 'An error occurred while processing the request.', message: error.message })
   }
 })
