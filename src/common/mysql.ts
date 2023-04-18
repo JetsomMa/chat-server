@@ -16,8 +16,8 @@ export class MysqlDB {
     constructor() {
         if (process.env.DATASET_MYSQL_USER) {
             this.MysqlDB = new RDSClient({
-                host: '118.195.236.91',
-                port: 3306,
+                host: process.env.MYSQL_HOST,
+                port: process.env.MYSQL_PORT,
                 user: process.env.DATASET_MYSQL_USER,
                 password: process.env.DATASET_MYSQL_PASSWORD,
                 database: process.env.DATASET_MYSQL_DATABASE,
@@ -28,6 +28,12 @@ export class MysqlDB {
     async saveConversation(conversation: ConversationRecord) {
         if (this.MysqlDB) {
             await this.MysqlDB.insert('conversation', conversation)
+        }
+    }
+
+    disconnect() {
+        if (this.MysqlDB) {
+            this.MysqlDB.end()
         }
     }
 }

@@ -5,10 +5,15 @@ from qdrant_client import QdrantClient
 import openai
 import os
 import json
+from dotenv import load_dotenv
+
+# 加载.env文件
+load_dotenv()
 
 app = Flask(__name__)
 
-collection_name = "pinefield_data_collection_test2"
+collection_name = os.getenv("COLLECTION_NAME")
+
 def query(text):
     """
     执行逻辑：
@@ -17,7 +22,7 @@ def query(text):
     """
     print("----- query start -----")
 
-    client = QdrantClient("118.195.236.91", port=6333)
+    client = QdrantClient(os.getenv("QDRANT_HOST"), port=os.getenv("QDRANT_PORT"))
     openai.api_key = os.getenv("OPENAI_API_KEY")
     sentence_embeddings = openai.Embedding.create(
         model="text-embedding-ada-002",
