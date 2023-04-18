@@ -17,4 +17,4 @@ COPY . /app
 EXPOSE 3000
 
 # 启动Node.js应用程序
-CMD ["npm", "run", "dev"]
+CMD ["npm", "run", "prod"]
