@@ -35,6 +35,7 @@ export class OpenAI {
         const configuration = new Configuration({
             apiKey: process.env.OPENAI_API_KEY,
         })
+        
         this.openai = new OpenAIApi(configuration, process.env.OPENAI_PROXY || undefined)
 
         this.chatCompletionRequest = {
