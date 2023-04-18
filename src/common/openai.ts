@@ -35,7 +35,7 @@ export class OpenAI {
         const configuration = new Configuration({
             apiKey: process.env.OPENAI_API_KEY,
         })
-        this.openai = new OpenAIApi(configuration)
+        this.openai = new OpenAIApi(configuration, process.env.OPENAI_PROXY || undefined)
 
         this.chatCompletionRequest = {
             model: 'gpt-3.5-turbo',
@@ -44,7 +44,7 @@ export class OpenAI {
             max_tokens: 2000,
         }
 
-        this.qdrantClient = new QdrantClient('http://118.195.236.91:6333', 'pinefield_data_collection_test2')
+        this.qdrantClient = new QdrantClient(`http://${process.env.QDRANT_HOST}:${process.env.QDRANT_PORT}`, process.env.COLLECTION_NAME || '')
     }
 
     // 重置会话

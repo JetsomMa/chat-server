@@ -10,10 +10,11 @@ import type { Response } from "./common/openai"
 import { OpenAI } from "./common/openai"
 
 // 初始化环境变量
-dotenv.config()
+// 根据NODE_ENV环境变量加载相应的.env文件
+const envFile = process.env.NODE_ENV ? `.env.${process.env.NODE_ENV}` : '.env';
+dotenv.config({ path: envFile });
 
 // 初始化数据库
-const mysqlDB = new MysqlDB()
 const openAIApi = new OpenAI()
 
 // 定义express应用
@@ -24,6 +25,8 @@ app.use(express.json(optionsJson)) // 请求体参数是json结构: {name: tom, 
 app.use(cors())
 
 app.post('/api/createChatCompletion', async (req: Request, res: any) => {
+  const mysqlDB = new MysqlDB()
+
   console.log('----------------------------------------------------------')
   console.log('req.body -> ', req.body)
   let { prompt, conversationId, userName } = req.body
@@ -59,10 +62,14 @@ app.post('/api/createChatCompletion', async (req: Request, res: any) => {
       // usage: JSON.stringify(result.data.usage), 
       // finish_reason 
     }
-    mysqlDB.saveConversation(conversationDB)
 
     console.log('response ->', response)
     res.status(200).json(response)
+    try {
+      mysqlDB.saveConversation(conversationDB)
+    } catch (error) {
+      mysqlDB.disconnect()
+    }
   } catch (error: any) {
     console.error(error)
 
@@ -73,9 +80,13 @@ app.post('/api/createChatCompletion', async (req: Request, res: any) => {
       username: userName, 
       datetime: dateFormat(new Date())
     }
-    mysqlDB.saveConversation(conversationDB)
 
     res.status(500).json({ error: 'An error occurred while processing the request.', message: error.message })
+    try {
+      mysqlDB.saveConversation(conversationDB)
+    } catch (error) {
+      mysqlDB.disconnect()
+    }
   }
 })
 

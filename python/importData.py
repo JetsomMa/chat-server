@@ -6,10 +6,12 @@ import tqdm
 import openai
 import json
 import time
+from dotenv import load_dotenv
 
-# collection_name = "pinefield_data_collection_webos"
+# 加载.env文件
+load_dotenv()
 
-collection_name = "pinefield_data_collection_test2"
+collection_name = os.getenv("COLLECTION_NAME")
 
 def to_embeddings(prompt):
     # 休眠1秒
@@ -22,7 +24,7 @@ def to_embeddings(prompt):
 
 
 if __name__ == '__main__':
-    client = QdrantClient("118.195.236.91", port=6333)
+    client = QdrantClient(os.getenv("QDRANT_HOST"), port=os.getenv("QDRANT_PORT"))
     openai.api_key = os.getenv("OPENAI_API_KEY")
     # 创建collection
     client.recreate_collection(
