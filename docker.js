@@ -1,3 +1,4 @@
+// pnpm build
 // docker build  --platform=linux/x86_64 -f .node/Dockerfile -t 10.8.0.1:5000/chat-server:0.0.1 .
 // docker push 10.8.0.1:5000/chat-server:0.0.1
 
@@ -8,6 +9,10 @@ const packageJsonConfig = require('./package.json')
 console.error(
   colors('blue', `----------准备生成chat-server镜像${packageJsonConfig.version}----------`)
 )
+
+console.error(colors('blue', `----------开始编译chat-server----------`))
+runCmd('pnpm build')
+
 console.error(colors('blue', `----------开始打包chat-server镜像----------`))
 runCmd(
   `docker build --platform=linux/x86_64 -f .node/Dockerfile -t 10.8.0.1:5000/chat-server:${packageJsonConfig.version} .`
